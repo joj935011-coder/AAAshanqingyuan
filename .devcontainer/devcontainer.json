@@ -1,0 +1,12 @@
+{
+  "name": "泉见未来开发环境",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "forwardPorts": [4173],
+  "portsAttributes": {
+    "4173": { "label": "泉见未来预览", "onAutoForward": "notify" }
+  },
+  "postCreateCommand": "npm run check",
+  "customizations": {
+    "vscode": { "settings": { "files.eol": "\n" } }
+  }
+}

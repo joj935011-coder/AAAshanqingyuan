@@ -1,0 +1,14 @@
+{
+  "name": "quan-future-guide",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/serve.mjs",
+    "validate": "node scripts/validate-artifact.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check web/app.js && node --check web/core.js && node --check server/handler.js && node scripts/build.mjs && node --test tests/*.test.mjs && node scripts/validate-artifact.mjs"
+  }
+}

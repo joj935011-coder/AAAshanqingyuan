@@ -1,0 +1,34 @@
+import { readFile, writeFile, mkdir, copyFile, readdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+const root = fileURLToPath(new URL('..', import.meta.url));
+const knowledge = JSON.parse(await readFile(resolve(root, 'docs/daming-lake.json'), 'utf8'));
+if (!knowledge.name || !Array.isArray(knowledge.documents) || !knowledge.documents.length) throw Error('大明湖知识库需要包含 name 和 documents。');
+await writeFile(resolve(root, 'web/data.js'), 'window.DAMING_DATA = ' + JSON.stringify(knowledge, null, 2) + ';\n');
+const files = await readdir(resolve(root, 'web'));
+const assets = {};
+for (const file of files) { if (/\.(html|css|js|svg|json)$/.test(file)) assets['/' + file] = await readFile(resolve(root, 'web', file), 'utf8'); }
+const core = await readFile(resolve(root, 'web/core.js'), 'utf8');
+const handler = await readFile(resolve(root, 'server/handler.js'), 'utf8');
+const source = core + '\n' + handler + '\nconst assets = ' + JSON.stringify(assets) + `;
+export default { async fetch(request, env = {}) {
+ const path = new URL(request.url).pathname;
+ if (path.startsWith('/api/')) return handleApi(request, env);
+ if (!['GET','HEAD'].includes(request.method)) return new Response('Method not allowed',{status:405});
+ const key = path === '/' ? '/index.html' : path;
+ if (!Object.hasOwn(assets,key)) return new Response('Not found', {status:404});
+ const type = key.endsWith('.html') ? 'text/html' : key.endsWith('.css') ? 'text/css' : key.endsWith('.svg') ? 'image/svg+xml' : key.endsWith('.json') ? 'application/json' : 'text/javascript';
+ return new Response(request.method === 'HEAD' ? null : assets[key], {headers:{'content-type':type+'; charset=utf-8','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin','content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'"}});
+}};
+`;
+await mkdir(resolve(root,'worker'), {recursive:true});
+await mkdir(resolve(root,'dist/server'), {recursive:true});
+await mkdir(resolve(root,'dist/.openai'), {recursive:true});
+await writeFile(resolve(root,'worker/index.js'),source);
+await writeFile(resolve(root,'dist/server/index.js'),source);
+await copyFile(resolve(root,'.openai/hosting.json'),resolve(root,'dist/.openai/hosting.json'));
+let standalone = assets['/index.html'].replace('<link rel="stylesheet" href="styles.css">', '<style>' + assets['/styles.css'] + '</style>');
+for (const file of ['data.js','core.js','app.js']) standalone = standalone.replace('<script src="'+file+'" defer></script>', '');
+standalone = standalone.replace('</body>', ['data.js','core.js','app.js'].map(file => '<script>'+assets['/'+file].replace(/<\/script/gi,'<\\/script')+'</script>').join('\n')+'</body>');
+await writeFile(resolve(root,'泉见未来-双击打开.html'), standalone);
+console.log(`Built ${files.length} web assets into a standalone Worker.`);
